@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>請求書</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%238f2d2d'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-size='16' fill='white' font-family='serif'%3E請%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="brand-mark">請</span>
+      <div>
+        <strong>請求書</strong>
+        <small>このブラウザに保存</small>
+      </div>
+    </div>
+    <nav>
+      <button type="button" data-view="edit" class="active">作成</button>
+      <button type="button" data-view="history">履歴</button>
+      <button type="button" data-view="settings">自社情報</button>
+    </nav>
+    <div class="header-actions">
+      <button type="button" id="btn-export">書き出し</button>
+      <button type="button" id="btn-import">読み込み</button>
+      <input id="import-file" type="file" accept="application/json,.json" hidden>
+    </div>
+  </header>
+
+  <main>
+    <section id="view-edit">
+      <div class="workspace">
+        <div class="editor" id="editor">
+          <div class="editor-scroll">
+          <div id="profile-banner" class="banner" hidden>
+            <span>自社の名前と振込先が未入力です。</span>
+            <button type="button" data-view-jump="settings">入力する</button>
+          </div>
+          <div id="snapshot-banner" class="banner" hidden>
+            <span>この用紙は、保存した時点の自社情報です。</span>
+            <button type="button" id="btn-refresh-profile">いまの自社情報に差し替える</button>
+          </div>
+
+          <section class="block">
+            <h2>請求先</h2>
+            <div class="stack">
+              <label class="field">登録済み
+                <select id="client-pick">
+                  <option value="">選んで反映</option>
+                </select>
+              </label>
+              <div class="row-honor">
+                <label class="field">名称
+                  <input id="f-client-name" type="text" autocomplete="off" placeholder="株式会社〇〇">
+                </label>
+                <label class="field">敬称
+                  <select id="f-honorific">
+                    <option>御中</option>
+                    <option>様</option>
+                    <option>殿</option>
+                  </select>
+                </label>
+              </div>
+              <label class="field">担当者
+                <input id="f-person" type="text" autocomplete="off" placeholder="空欄なら名前の下には出ません">
+              </label>
+              <div class="row-2">
+                <label class="field">郵便番号
+                  <input id="f-client-zip" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="1000001">
+                </label>
+                <label class="field">メール
+                  <input id="f-client-email" type="email" autocomplete="off" placeholder="送付用。用紙には出ません">
+                </label>
+              </div>
+              <label class="field">住所
+                <textarea id="f-client-address" rows="2" placeholder="東京都千代田区…"></textarea>
+              </label>
+              <div class="inline-actions">
+                <button type="button" class="btn" id="btn-save-client">この請求先を登録</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="block">
+            <h2>請求内容</h2>
+            <div class="stack">
+              <div class="number-row">
+                <label class="field">請求書番号
+                  <input id="f-number" type="text" autocomplete="off" spellcheck="false">
+                </label>
+                <button type="button" class="btn" id="btn-renumber">自動採番</button>
+              </div>
+              <div class="row-2">
+                <label class="field">発行日
+                  <input id="f-issue" type="date">
+                </label>
+                <label class="field">入金状態
+                  <select id="f-status">
+                    <option value="unpaid">未入金</option>
+                    <option value="paid">入金済</option>
+                  </select>
+                </label>
+              </div>
+              <label class="field">支払期限
+                <input id="f-due" type="date">
+              </label>
+              <div class="due-presets">
+                <button type="button" class="btn" id="btn-due-eom">当月末</button>
+                <button type="button" class="btn" id="btn-due-next">翌月末</button>
+                <button type="button" class="btn" id="btn-due-30">30日後</button>
+              </div>
+              <label class="field">件名
+                <input id="f-subject" type="text" placeholder="ホームページ制作 10月分">
+              </label>
+              <label class="field">取引日
+                <input id="f-period" type="text" placeholder="空欄なら発行日。2026年10月分 なども可">
+              </label>
+            </div>
+          </section>
+
+          <section class="block">
+            <h2>明細</h2>
+            <div id="lines"></div>
+            <button type="button" class="btn" id="btn-add-line">行を追加</button>
+            <div id="totals" class="totals"></div>
+          </section>
+
+          <section class="block">
+            <h2>支払い</h2>
+            <div class="stack">
+              <label class="check">
+                <input id="f-withholding" type="checkbox">
+                源泉徴収を差し引く
+              </label>
+              <p class="hint">報酬などで必要なときだけ。交通費など対象外の行は「源泉対象」を外します。税率の既定は 10.21% で、1円未満は切り捨てです。</p>
+              <label class="field" id="withhold-rate-wrap" hidden>源泉徴収税率（%）
+                <input id="f-withholding-rate" type="text" inputmode="decimal" value="10.21">
+              </label>
+              <label class="field">振込手数料の一文
+                <select id="f-fee">
+                  <option value="client">お客様負担と記載</option>
+                  <option value="self">当方負担と記載</option>
+                  <option value="none">記載しない</option>
+                </select>
+              </label>
+              <label class="field">備考
+                <textarea id="f-notes" rows="3" placeholder="納品済みの作業に対するご請求です。"></textarea>
+              </label>
+            </div>
+          </section>
+
+          <div class="quiet-actions">
+            <button type="button" class="text-btn" id="btn-duplicate" hidden>複製して新規</button>
+            <button type="button" class="text-btn danger" id="btn-delete-invoice" hidden>この請求書を削除</button>
+          </div>
+          </div>
+
+          <div class="editor-actions">
+            <div>
+              <div class="money-label" id="sticky-label">ご請求額</div>
+              <div class="money-value" id="sticky-total">¥0-</div>
+            </div>
+            <div class="action-buttons">
+              <button type="button" class="btn" id="btn-new">新規</button>
+              <button type="button" class="btn primary" id="btn-save" title="⌘S">保存</button>
+              <button type="button" class="btn" id="btn-print">印刷 / PDF</button>
+              <button type="button" class="btn" id="btn-mail">送付メール</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="preview-wrap">
+          <div class="preview-toolbar">
+            <p>この用紙が印刷されます。PDFは印刷画面で「PDFとして保存」。</p>
+            <button type="button" class="btn" id="btn-print-2">印刷 / PDF</button>
+          </div>
+          <div id="sheet-mount"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-history" hidden>
+      <div class="page">
+        <div class="page-inner">
+          <h2>保存した請求書</h2>
+          <p id="history-summary" class="lead"></p>
+          <div class="filters" id="history-filter">
+            <button type="button" data-filter="all" class="active">すべて</button>
+            <button type="button" data-filter="unpaid">未入金</button>
+            <button type="button" data-filter="paid">入金済</button>
+          </div>
+          <input id="history-search" type="search" placeholder="相手先・件名・番号">
+          <div id="history-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-settings" hidden>
+      <div class="page">
+        <div class="page-inner">
+          <h2>自社情報</h2>
+          <p class="hint lead">入力内容は、このブラウザの中だけに残ります。別のブラウザで開くと別データになります。消えると困るときは右上の「書き出し」でJSONを控えてください。次回からは、この index.html を同じブラウザで開きます。</p>
+          <div class="stack">
+            <label class="field">屋号・会社名
+              <input id="p-name" type="text" autocomplete="organization" placeholder="株式会社〇〇">
+            </label>
+            <div class="row-2">
+              <label class="field">郵便番号
+                <input id="p-zip" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="1500001">
+              </label>
+              <label class="field">電話
+                <input id="p-tel" type="tel" autocomplete="tel">
+              </label>
+            </div>
+            <label class="field">住所
+              <textarea id="p-address" rows="2"></textarea>
+            </label>
+            <label class="field">メール
+              <input id="p-email" type="email" autocomplete="email">
+            </label>
+            <label class="field">適格請求書発行事業者の登録番号
+              <input id="p-reg" type="text" spellcheck="false" placeholder="T1234567890123">
+            </label>
+            <p id="reg-warning" class="warn" hidden>登録番号は T と数字13桁です。空欄なら用紙に出しません。</p>
+            <label class="field">消費税の端数
+              <select id="p-rounding">
+                <option value="floor">切り捨て（一般的）</option>
+                <option value="round">四捨五入</option>
+                <option value="ceil">切り上げ</option>
+              </select>
+            </label>
+            <p class="hint">税率ごとの税抜合計に対して、1請求につき1回だけ端数処理します。</p>
+          </div>
+
+          <h2 style="margin-top:22px">振込先</h2>
+          <div class="stack">
+            <div class="row-2">
+              <label class="field">銀行名
+                <input id="p-bank" type="text" placeholder="〇〇銀行">
+              </label>
+              <label class="field">支店名
+                <input id="p-branch" type="text" placeholder="〇〇支店">
+              </label>
+            </div>
+            <div class="row-2">
+              <label class="field">口座種別
+                <select id="p-account-type">
+                  <option>普通</option>
+                  <option>当座</option>
+                  <option>貯蓄</option>
+                </select>
+              </label>
+              <label class="field">口座番号
+                <input id="p-account-number" type="text" inputmode="numeric" spellcheck="false">
+              </label>
+            </div>
+            <label class="field">口座名義
+              <input id="p-account-holder" type="text" placeholder="ヤマダ タロウ">
+            </label>
+          </div>
+
+          <h2 style="margin-top:22px">印影</h2>
+          <p class="hint">透過PNGがきれいに載ります。画像はこのブラウザの保存データに入ります。</p>
+          <div class="inline-actions">
+            <label class="btn">画像を選ぶ
+              <input id="p-seal" type="file" accept="image/*" hidden>
+            </label>
+            <button type="button" class="btn" id="btn-seal-clear" hidden>印影を外す</button>
+          </div>
+          <div id="seal-preview-wrap" hidden style="margin-top:10px">
+            <img id="seal-preview" class="seal-preview" alt="印影のプレビュー">
+          </div>
+
+          <h2 style="margin-top:22px">登録した請求先</h2>
+          <div id="client-admin"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <noscript><p style="padding:16px">このアプリは JavaScript で動きます。ブラウザの設定で有効にしてください。</p></noscript>
+  <script src="js/calc.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
